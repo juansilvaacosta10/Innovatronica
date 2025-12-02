@@ -3,270 +3,237 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Innovatronica AI Assistant</title>
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <title>Cotizador Inteligente Innovatrónica</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
-        .chat-container { height: calc(100vh - 140px); }
-        .msg-bubble { max-width: 85%; padding: 12px 16px; border-radius: 12px; position: relative; animation: fadeIn 0.3s ease; }
-        .msg-user { background-color: #2563eb; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .msg-ai { background-color: #ffffff; color: #1e293b; align-self: flex-start; border-bottom-left-radius: 2px; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .typing-indicator span { animation: blink 1.4s infinite both; }
+        .typing-indicator span:nth-child(2) { animation-delay: .2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: .4s; }
+        @keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
     </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-slate-50 h-screen flex flex-col font-sans" x-data="app()">
 
-    <script type="text/babel">
-        // --- TU URL DE N8N ---
-        const N8N_URL = "https://1.jisn8n.work/webhook/innovatronica-api"; 
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 p-4 shadow-sm flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <div class="bg-blue-600 text-white p-2 rounded-lg">
+                <i class="fa-solid fa-bolt"></i>
+            </div>
+            <h1 class="font-bold text-gray-800 text-lg">Innovatrónica AI</h1>
+        </div>
+        <span class="text-xs text-gray-400">Cotizador KROHNE v1.0</span>
+    </header>
 
-        const { useState, useEffect, useRef } = React;
+    <!-- Main Chat Area -->
+    <main class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-container">
+        <!-- Mensaje de bienvenida -->
+        <div class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[80%]">
+                <p class="text-gray-700 text-sm">Hola, soy tu asistente de cotización. Describe el problema o proceso y te ayudaré a seleccionar el instrumento correcto.</p>
+            </div>
+        </div>
 
-        function App() {
-            const [messages, setMessages] = useState([
-                { role: 'ai', text: 'Hola, soy tu asistente técnico de Innovatronica. ¿En qué proyecto estás trabajando hoy?' }
-            ]);
-            const [input, setInput] = useState('');
-            const [loading, setLoading] = useState(false);
-            const [modalOpen, setModalOpen] = useState(false);
-            const [currentModel, setCurrentModel] = useState(null);
-            const [options, setOptions] = useState({});
-            const [selections, setSelections] = useState({});
-            const [items, setItems] = useState([]); // Items listos para cotizar
-            const messagesEndRef = useRef(null);
-
-            const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            useEffect(scrollToBottom, [messages]);
-
-            // --- FUNCIONES DE CONEXIÓN ---
-
-            const sendMessage = async () => {
-                if (!input.trim()) return;
-                const text = input;
-                setInput('');
-                setMessages(prev => [...prev, { role: 'user', text }]);
-                setLoading(true);
-
-                try {
-                    const res = await fetch(N8N_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'chat', message: text })
-                    });
-                    const data = await res.json();
-                    
-                    setMessages(prev => [...prev, { 
-                        role: 'ai', 
-                        text: data.reply, 
-                        suggestedModel: data.suggestedModel 
-                    }]);
-                } catch (e) {
-                    setMessages(prev => [...prev, { role: 'ai', text: "Error de conexión con el servidor." }]);
-                }
-                setLoading(false);
-            };
-
-            const fetchOptions = async (modelId) => {
-                setLoading(true);
-                try {
-                    const res = await fetch(N8N_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'get_options', model: modelId })
-                    });
-                    const data = await res.json();
-                    if(data.categories && Object.keys(data.categories).length > 0) {
-                        setOptions(data.categories);
-                        setCurrentModel(modelId);
-                        setSelections({});
-                        setModalOpen(true);
-                    } else {
-                        alert("No se encontraron opciones para el modelo " + modelId);
-                    }
-                } catch (e) {
-                    alert("Error al cargar opciones.");
-                }
-                setLoading(false);
-            };
-
-            const saveConfiguration = async () => {
-                setLoading(true);
-                try {
-                    const res = await fetch(N8N_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ 
-                            action: 'calculate', 
-                            model: currentModel, 
-                            selections: selections 
-                        })
-                    });
-                    const data = await res.json();
-                    
-                    // Guardamos en memoria
-                    setItems(prev => [...prev, { model: currentModel, code: data.finalCode, price: data.price }]);
-                    setModalOpen(false);
-                    
-                    setMessages(prev => [...prev, { 
-                        role: 'ai', 
-                        text: `✅ Configuración guardada: ${currentModel} (${data.finalCode}). Precio: $${data.price}. ¿Deseas agregar otro o generar la cotización?` 
-                    }]);
-                } catch (e) {
-                    alert("Error al calcular precio.");
-                }
-                setLoading(false);
-            };
-
-            const generateQuote = async () => {
-                if(items.length === 0) {
-                    alert("No hay ítems configurados para cotizar.");
-                    return;
-                }
-                setLoading(true);
-                try {
-                    const res = await fetch(N8N_URL, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ action: 'finalize', items: items })
-                    });
-                    const data = await res.json();
-                    setMessages(prev => [...prev, { role: 'ai', text: `📄 Cotización generada. Puedes descargarla aquí: ${data.pdfUrl}` }]);
-                } catch (e) {
-                    alert("Error generando el PDF.");
-                }
-                setLoading(false);
-            };
-
-            const handleManualForm = () => {
-                const model = prompt("Ingresa el código del modelo (ej: VE 83):");
-                if(model) fetchOptions(model);
-            };
-
-            return (
-                <div className="flex flex-col h-screen max-w-4xl mx-auto bg-white shadow-2xl overflow-hidden">
-                    
-                    {/* HEADER & BOTONES SUPERIORES */}
-                    <div className="bg-white border-b p-4 flex justify-between items-center shadow-sm z-10">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-blue-600 text-white p-2 rounded-lg">
-                                <i className="fas fa-bolt text-xl"></i>
-                            </div>
-                            <h1 className="font-bold text-xl text-gray-800 tracking-tight">Innovatronica AI</h1>
-                        </div>
-                        <div className="flex gap-3">
-                            <button 
-                                onClick={handleManualForm}
-                                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition flex items-center gap-2"
-                            >
-                                <i className="fas fa-plus-circle"></i> Generar Formulario
-                            </button>
-                            <button 
-                                onClick={generateQuote}
-                                className={`px-4 py-2 rounded-lg font-medium text-white transition flex items-center gap-2 ${items.length > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'}`}
-                                disabled={items.length === 0}
-                            >
-                                <i className="fas fa-file-pdf"></i> Generar Cotización ({items.length})
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* CHAT AREA */}
-                    <div className="flex-1 overflow-y-auto p-6 bg-slate-50 space-y-6">
-                        {messages.map((msg, i) => (
-                            <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
-                                <div className={`msg-bubble ${msg.role === 'user' ? 'msg-user' : 'msg-ai'}`}>
-                                    {msg.text}
-                                </div>
-                                {msg.suggestedModel && (
-                                    <button 
-                                        onClick={() => fetchOptions(msg.suggestedModel)}
-                                        className="mt-3 ml-1 bg-green-600 text-white text-sm px-4 py-2 rounded-full shadow hover:bg-green-700 transition flex items-center gap-2 animate-bounce"
-                                    >
-                                        Configurar {msg.suggestedModel} <i className="fas fa-arrow-right"></i>
-                                    </button>
-                                )}
-                            </div>
-                        ))}
-                        {loading && <div className="text-center text-gray-400 text-sm animate-pulse">Procesando...</div>}
-                        <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* INPUT AREA */}
-                    <div className="p-4 bg-white border-t">
-                        <div className="relative">
-                            <input 
-                                type="text" 
-                                className="w-full border border-gray-300 rounded-full py-3 px-5 pr-12 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm"
-                                placeholder="Describe tu necesidad técnica..."
-                                value={input}
-                                onChange={e => setInput(e.target.value)}
-                                onKeyPress={e => e.key === 'Enter' && sendMessage()}
-                            />
-                            <button 
-                                onClick={sendMessage}
-                                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-blue-600 text-white w-10 h-10 rounded-full hover:bg-blue-700 flex items-center justify-center shadow-md"
-                            >
-                                <i className="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* MODAL CONFIGURADOR */}
-                    {modalOpen && (
-                        <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-                            <div className="bg-white rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
-                                <div className="p-5 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-                                    <div>
-                                        <h3 className="font-bold text-xl text-gray-800">Configurar {currentModel}</h3>
-                                        <p className="text-xs text-gray-500">Selecciona las opciones requeridas</p>
-                                    </div>
-                                    <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-red-500 transition">
-                                        <i className="fas fa-times text-xl"></i>
-                                    </button>
-                                </div>
-                                <div className="p-6 overflow-y-auto flex-1 space-y-5">
-                                    {Object.entries(options).map(([cat, opts]) => (
-                                        <div key={cat}>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">{cat}</label>
-                                            <div className="relative">
-                                                <select 
-                                                    className="w-full border border-gray-300 p-3 rounded-lg appearance-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                                                    onChange={e => setSelections({...selections, [cat]: e.target.value})}
-                                                >
-                                                    <option value="">-- Seleccionar --</option>
-                                                    {opts.map((o, i) => (
-                                                        <option key={i} value={o.Codigo_Opcion}>
-                                                            {o.Descripcion} {o.Precio > 0 ? `(+${o.Precio}€)` : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                                                    <i className="fas fa-chevron-down text-xs"></i>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="p-5 border-t bg-gray-50 rounded-b-xl flex justify-end gap-3">
-                                    <button onClick={() => setModalOpen(false)} className="px-5 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-medium">Cancelar</button>
-                                    <button onClick={saveConfiguration} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 shadow-lg transform hover:-translate-y-0.5 transition">
-                                        Guardar Configuración
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+        <!-- Loop de mensajes -->
+        <template x-for="msg in messages" :key="msg.id">
+            <div class="flex gap-3" :class="msg.isUser ? 'flex-row-reverse' : ''">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                     :class="msg.isUser ? 'bg-gray-800 text-white' : 'bg-blue-100 text-blue-600'">
+                    <i :class="msg.isUser ? 'fa-solid fa-user' : 'fa-solid fa-robot'"></i>
                 </div>
-            );
-        }
+                <div class="p-3 rounded-2xl shadow-sm border border-gray-100 max-w-[80%] text-sm"
+                     :class="msg.isUser ? 'bg-gray-800 text-white rounded-tr-none' : 'bg-white text-gray-700 rounded-tl-none'">
+                    <p x-text="msg.text"></p>
+                    
+                    <!-- Botón Especial: Generar Formulario -->
+                    <template x-if="msg.modelId && !msg.formGenerated">
+                        <button @click="loadForm(msg.modelId, msg.id)" 
+                                class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-list-check"></i> Configurar Modelo <span x-text="msg.modelId"></span>
+                        </button>
+                    </template>
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+                    <!-- Área del Formulario Dinámico -->
+                    <template x-if="msg.showForm">
+                        <div class="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <h3 class="font-bold text-gray-800 mb-3 border-b pb-2">Configuración: <span x-text="msg.modelId"></span></h3>
+                            
+                            <!-- Loop Categorías -->
+                            <template x-for="(options, category) in msg.formData" :key="category">
+                                <div class="mb-4">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1" x-text="category"></label>
+                                    <select class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 p-2"
+                                            @change="updateSelection(category, $el.value, msg.id)">
+                                        <option value="">Seleccionar...</option>
+                                        <template x-for="opt in options" :key="opt.code">
+                                            <option :value="opt.code" x-text="opt.code + ' - ' + opt.desc"></option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </template>
+
+                            <button @click="generateQuote(msg.id)" 
+                                    class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 mt-2">
+                                <i class="fa-solid fa-file-invoice-dollar"></i> Generar Cotización
+                            </button>
+                        </div>
+                    </template>
+                    
+                    <!-- Link de Descarga -->
+                    <template x-if="msg.pdfUrl">
+                        <a :href="msg.pdfUrl" target="_blank" class="mt-3 block text-center bg-gray-900 text-white py-2 rounded-lg text-xs font-bold">
+                            <i class="fa-solid fa-download"></i> Descargar PDF
+                        </a>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+        <!-- Loading Indicator -->
+        <div x-show="loading" class="flex gap-3">
+            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 typing-indicator flex gap-1 items-center h-10">
+                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+            </div>
+        </div>
+    </main>
+
+    <!-- Input Area -->
+    <div class="p-4 bg-white border-t border-gray-200">
+        <form @submit.prevent="sendMessage" class="flex gap-2">
+            <input type="text" x-model="input" placeholder="Escribe tu requerimiento..." 
+                   class="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition">
+            <button type="submit" :disabled="loading || !input" 
+                    class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-full w-10 h-10 flex items-center justify-center transition">
+                <i class="fa-solid fa-paper-plane"></i>
+            </button>
+        </form>
+    </div>
+
+    <script>
+        function app() {
+            return {
+                // CAMBIA ESTO POR TU URL DE WEBHOOK DE PRODUCCIÓN DE N8N
+                webhookUrl: 'https://tu-instancia-n8n.com/webhook/innovatronica-api', 
+                input: '',
+                loading: false,
+                messages: [],
+                selections: {}, // Guarda las selecciones del usuario temporalmente
+
+                async sendMessage() {
+                    if (!this.input.trim()) return;
+                    
+                    const text = this.input;
+                    this.input = '';
+                    this.addMessage(text, true);
+                    this.loading = true;
+
+                    try {
+                        const response = await fetch(this.webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'chat', text: text })
+                        });
+                        const data = await response.json();
+                        
+                        // data espera: { text: "Respuesta IA", detected_model: "VE83" (opcional) }
+                        this.addMessage(data.text, false, data.detected_model);
+
+                    } catch (error) {
+                        this.addMessage("Error de conexión con el servidor.", false);
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async loadForm(modelId, msgId) {
+                    this.loading = true;
+                    // Encontrar el mensaje y marcar form como generado para ocultar botón
+                    const msgIndex = this.messages.findIndex(m => m.id === msgId);
+                    this.messages[msgIndex].formGenerated = true;
+
+                    try {
+                        const response = await fetch(this.webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: 'get_options', model_id: modelId })
+                        });
+                        const data = await response.json(); // Espera { "Surface Finish": [...], ... }
+                        
+                        this.messages[msgIndex].showForm = true;
+                        this.messages[msgIndex].formData = data;
+                        
+                        // Inicializar objeto de selección para este formulario
+                        this.selections[msgId] = { model: modelId, codes: {} };
+
+                    } catch (error) {
+                        alert("Error cargando opciones.");
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                updateSelection(category, code, msgId) {
+                    if (!this.selections[msgId]) return;
+                    this.selections[msgId].codes[category] = code;
+                },
+
+                async generateQuote(msgId) {
+                    const currentSelection = this.selections[msgId];
+                    // Validar si quieres que todo esté lleno o no
+                    
+                    this.loading = true;
+                    try {
+                        const response = await fetch(this.webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                action: 'generate_quote', 
+                                model_id: currentSelection.model,
+                                selected_codes: currentSelection.codes 
+                            })
+                        });
+                        const data = await response.json(); // Espera { pdf_url: "..." }
+                        
+                        // Mostrar link de descarga en el mensaje
+                        const msgIndex = this.messages.findIndex(m => m.id === msgId);
+                        this.messages[msgIndex].pdfUrl = data.pdf_url;
+                        this.messages[msgIndex].showForm = false; // Ocultar form si quieres limpiar
+
+                    } catch (error) {
+                        alert("Error generando cotización.");
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                addMessage(text, isUser, modelId = null) {
+                    this.messages.push({
+                        id: Date.now(),
+                        text: text,
+                        isUser: isUser,
+                        modelId: modelId, // Si n8n detecta modelo, se guarda aquí
+                        formGenerated: false,
+                        showForm: false,
+                        formData: null,
+                        pdfUrl: null
+                    });
+                    this.$nextTick(() => {
+                        const container = document.getElementById('chat-container');
+                        container.scrollTop = container.scrollHeight;
+                    });
+                }
+            }
+        }
     </script>
 </body>
 </html>
