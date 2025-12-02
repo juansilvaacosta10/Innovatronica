@@ -3,205 +3,238 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cotizador AI Innovatronica</title>
-    <!-- Usamos React y Tailwind directamente para que funcione sin instalar nada -->
+    <title>Cotizador Pro Innovatronica</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f3f4f6; }
-        .chat-bubble { max-width: 80%; padding: 10px 15px; border-radius: 15px; margin-bottom: 10px; }
-        .user-msg { background-color: #2563eb; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-        .ai-msg { background-color: #e5e7eb; color: #1f2937; align-self: flex-start; border-bottom-left-radius: 2px; }
-        .typing-indicator span { display: inline-block; width: 6px; height: 6px; background-color: #555; border-radius: 50%; animation: typing 1.4s infinite ease-in-out both; margin: 0 2px; }
-        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
-        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-    </style>
 </head>
-<body>
-    <div id="root"></div>
+<body class="bg-gray-100 h-screen flex flex-col">
+    <div id="root" class="h-full"></div>
 
     <script type="text/babel">
-        // --- CONFIGURACIÓN ---
-        // CAMBIA ESTAS URLS POR LAS DE TUS WEBHOOKS DE N8N (PRODUCTION URLS)
-        const N8N_CHAT_URL = "https://1.jisn8n.work/webhook/innovatronica-api"; 
-        const N8N_OPTIONS_URL = "https://1.jisn8n.work/webhook/innovatronica-api"; 
-        const N8N_QUOTE_URL = "https://1.jisn8n.work/webhook/innovatronica-api";
+        // --- PON TU URL DE N8N AQUÍ (Production URL) ---
+        const N8N_URL = "https://tu-n8n.com/webhook/innovatronica-api"; 
 
         const { useState, useEffect, useRef } = React;
 
         function App() {
             const [messages, setMessages] = useState([
-                { sender: 'ai', text: 'Hola, soy la IA de Innovatronica. ¿Qué instrumento necesitas cotizar hoy?' }
+                { role: 'ai', text: 'Hola, soy el asistente de Innovatronica. ¿Qué instrumento necesitas hoy?' }
             ]);
             const [input, setInput] = useState('');
             const [loading, setLoading] = useState(false);
-            const [showForm, setShowForm] = useState(false);
+            const [modalOpen, setModalOpen] = useState(false);
             const [currentModel, setCurrentModel] = useState(null);
-            const [formOptions, setFormOptions] = useState({});
+            const [options, setOptions] = useState({});
             const [selections, setSelections] = useState({});
-            const [quoteResult, setQuoteResult] = useState(null);
+            const [cart, setCart] = useState([]);
             const messagesEndRef = useRef(null);
 
-            const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
+            const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
             useEffect(scrollToBottom, [messages]);
 
-            // Enviar mensaje al Chatbot
-            const handleSend = async () => {
+            // 1. Enviar mensaje al Chat
+            const sendMessage = async () => {
                 if (!input.trim()) return;
-                const userText = input;
-                setMessages(prev => [...prev, { sender: 'user', text: userText }]);
+                const text = input;
                 setInput('');
+                setMessages(prev => [...prev, { role: 'user', text }]);
                 setLoading(true);
 
                 try {
-                    const response = await fetch(N8N_CHAT_URL, {
+                    const res = await fetch(N8N_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ message: userText })
+                        body: JSON.stringify({ action: 'chat', message: text })
                     });
-                    const data = await response.json();
-
-                    // La IA puede responder texto O decirnos que activemos el formulario
-                    if (data.action === 'show_form') {
-                        setMessages(prev => [...prev, { sender: 'ai', text: `Entendido. He detectado que necesitas el modelo ${data.model}. Cargando opciones...` }]);
-                        loadForm(data.model);
-                    } else {
-                        setMessages(prev => [...prev, { sender: 'ai', text: data.response }]);
-                    }
-                } catch (error) {
-                    setMessages(prev => [...prev, { sender: 'ai', text: 'Error conectando con n8n.' }]);
+                    const data = await res.json();
+                    
+                    // La IA responde texto y opcionalmente sugiere un modelo
+                    setMessages(prev => [...prev, { 
+                        role: 'ai', 
+                        text: data.reply, 
+                        suggestedModel: data.suggestedModel // Si la IA detecta modelo, viene aquí
+                    }]);
+                } catch (e) {
+                    console.error(e);
+                    setMessages(prev => [...prev, { role: 'ai', text: "Error de conexión." }]);
                 }
                 setLoading(false);
             };
 
-            // Cargar opciones desde Google Sheets (vía n8n)
-            const loadForm = async (modelId) => {
+            // 2. Pedir opciones al Excel (Click en botón "Configurar")
+            const openConfigurator = async (modelId) => {
                 setLoading(true);
                 try {
-                    const response = await fetch(N8N_OPTIONS_URL, {
+                    const res = await fetch(N8N_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: modelId })
+                        body: JSON.stringify({ action: 'get_options', model: modelId })
                     });
-                    const data = await response.json(); // Esperamos { categories: { "Conexión": [opt1, opt2], ... } }
-                    setFormOptions(data.categories);
+                    const data = await res.json();
+                    setOptions(data.categories);
                     setCurrentModel(modelId);
-                    setShowForm(true);
-                } catch (error) {
-                    alert("Error cargando las opciones del modelo.");
+                    setSelections({});
+                    setModalOpen(true);
+                } catch (e) {
+                    alert("Error cargando opciones");
                 }
                 setLoading(false);
             };
 
-            // Manejar cambios en el formulario
-            const handleSelectChange = (category, value) => {
-                setSelections(prev => ({ ...prev, [category]: value }));
-            };
-
-            // Enviar a cotizar
-            const handleQuote = async () => {
+            // 3. Calcular precio y agregar al carrito
+            const addToCart = async () => {
                 setLoading(true);
                 try {
-                    const response = await fetch(N8N_QUOTE_URL, {
+                    const res = await fetch(N8N_URL, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: currentModel, selections })
+                        body: JSON.stringify({ 
+                            action: 'calculate', 
+                            model: currentModel, 
+                            selections: selections 
+                        })
                     });
-                    const data = await response.json();
-                    setQuoteResult(data);
-                } catch (error) {
-                    alert("Error generando la cotización.");
+                    const data = await res.json(); // Esperamos { finalCode: "...", price: 1234 }
+                    
+                    setCart(prev => [...prev, {
+                        model: currentModel,
+                        code: data.finalCode,
+                        price: data.price,
+                        details: selections
+                    }]);
+                    setModalOpen(false);
+                    setMessages(prev => [...prev, { role: 'ai', text: `✅ Agregado al carrito: ${currentModel} (${data.finalCode}) - $${data.price}` }]);
+                } catch (e) {
+                    alert("Error calculando precio");
+                }
+                setLoading(false);
+            };
+
+            // 4. Generar Cotización Final (PDF)
+            const finalizeQuote = async () => {
+                if(cart.length === 0) return;
+                setLoading(true);
+                try {
+                    const res = await fetch(N8N_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'finalize', items: cart })
+                    });
+                    const data = await res.json();
+                    if(data.pdfUrl) {
+                         setMessages(prev => [...prev, { role: 'ai', text: `📄 Cotización generada exitosamente. Descárgala aquí: ${data.pdfUrl}` }]);
+                         window.open(data.pdfUrl, '_blank');
+                    } else {
+                        setMessages(prev => [...prev, { role: 'ai', text: "Cotización generada (Simulación). Revisa n8n." }]);
+                    }
+                } catch (e) {
+                    alert("Error generando PDF");
                 }
                 setLoading(false);
             };
 
             return (
-                <div className="flex h-screen">
-                    {/* Panel Izquierdo: Chat */}
-                    <div className={`w-full md:w-1/2 flex flex-col border-r bg-white ${showForm ? 'hidden md:flex' : 'flex'}`}>
-                        <div className="p-4 border-b bg-blue-600 text-white font-bold flex justify-between items-center">
-                            <span><i className="fas fa-robot mr-2"></i> Asistente Innovatronica</span>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 flex flex-col">
-                            {messages.map((msg, idx) => (
-                                <div key={idx} className={`chat-bubble ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`}>
-                                    {msg.text}
+                <div className="flex h-full max-w-6xl mx-auto shadow-xl">
+                    {/* Chat Area */}
+                    <div className="w-2/3 flex flex-col bg-white">
+                        <div className="p-4 border-b bg-blue-600 text-white font-bold">Asistente de Ventas</div>
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            {messages.map((msg, i) => (
+                                <div key={i} className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>
+                                    <div className={`p-3 rounded-lg max-w-md ${msg.role === 'user' ? 'bg-blue-100 text-blue-900' : 'bg-gray-100 text-gray-800'}`}>
+                                        {msg.text}
+                                    </div>
+                                    {/* Botón mágico si la IA sugiere modelo */}
+                                    {msg.suggestedModel && (
+                                        <button 
+                                            onClick={() => openConfigurator(msg.suggestedModel)}
+                                            className="mt-2 bg-green-500 text-white px-4 py-2 rounded shadow hover:bg-green-600 transition flex items-center gap-2"
+                                        >
+                                            <i className="fas fa-tools"></i> Configurar {msg.suggestedModel}
+                                        </button>
+                                    )}
                                 </div>
                             ))}
-                            {loading && !showForm && <div className="typing-indicator p-2"><span></span><span></span><span></span></div>}
                             <div ref={messagesEndRef} />
                         </div>
-                        <div className="p-4 border-t bg-gray-50 flex">
+                        <div className="p-4 border-t flex gap-2">
                             <input 
-                                type="text" 
-                                className="flex-1 p-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="flex-1 border p-2 rounded" 
+                                value={input} 
+                                onChange={e => setInput(e.target.value)}
+                                onKeyPress={e => e.key === 'Enter' && sendMessage()}
                                 placeholder="Escribe aquí..."
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                                disabled={loading}
                             />
-                            <button onClick={handleSend} className="bg-blue-600 text-white p-2 rounded-r hover:bg-blue-700 w-12">
-                                <i className="fas fa-paper-plane"></i>
+                            <button onClick={sendMessage} className="bg-blue-600 text-white px-4 rounded hover:bg-blue-700">Enviar</button>
+                        </div>
+                    </div>
+
+                    {/* Sidebar Carrito */}
+                    <div className="w-1/3 bg-gray-50 border-l p-4 flex flex-col">
+                        <h2 className="text-xl font-bold mb-4 text-gray-700">Carrito de Cotización</h2>
+                        <div className="flex-1 overflow-y-auto space-y-3">
+                            {cart.length === 0 && <p className="text-gray-400 text-center mt-10">El carrito está vacío</p>}
+                            {cart.map((item, i) => (
+                                <div key={i} className="bg-white p-3 rounded shadow border-l-4 border-blue-500">
+                                    <div className="font-bold">{item.model}</div>
+                                    <div className="text-xs text-gray-500">{item.code}</div>
+                                    <div className="text-right font-mono font-bold text-green-600">${item.price}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="border-t pt-4 mt-4">
+                            <div className="flex justify-between font-bold text-lg mb-4">
+                                <span>Total:</span>
+                                <span>${cart.reduce((a, b) => a + b.price, 0).toFixed(2)}</span>
+                            </div>
+                            <button 
+                                onClick={finalizeQuote}
+                                disabled={cart.length === 0 || loading}
+                                className="w-full bg-blue-800 text-white py-3 rounded font-bold hover:bg-blue-900 disabled:opacity-50"
+                            >
+                                {loading ? 'Procesando...' : 'Generar Cotización PDF'}
                             </button>
                         </div>
                     </div>
 
-                    {/* Panel Derecho: Configurador */}
-                    <div className={`w-full md:w-1/2 bg-gray-50 overflow-y-auto p-8 ${showForm ? 'block' : 'hidden md:block'}`}>
-                        {!showForm ? (
-                            <div className="h-full flex flex-col items-center justify-center text-gray-400">
-                                <i className="fas fa-cogs text-6xl mb-4"></i>
-                                <p>Habla con la IA para identificar el modelo y cargar el configurador.</p>
-                            </div>
-                        ) : (
-                            <div className="bg-white p-6 rounded-lg shadow-lg">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h2 className="text-2xl font-bold text-gray-800">Configurar {currentModel}</h2>
-                                    <button onClick={() => setShowForm(false)} className="text-sm text-red-500 md:hidden">Cerrar</button>
+                    {/* Modal Configurador */}
+                    {modalOpen && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+                            <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] flex flex-col">
+                                <div className="p-4 border-b flex justify-between items-center bg-gray-100 rounded-t-lg">
+                                    <h3 className="font-bold text-lg">Configurar {currentModel}</h3>
+                                    <button onClick={() => setModalOpen(false)} className="text-gray-500 hover:text-red-500">&times;</button>
                                 </div>
-
-                                {!quoteResult ? (
-                                    <>
-                                        {Object.entries(formOptions).map(([category, options]) => (
-                                            <div key={category} className="mb-4">
-                                                <label className="block text-sm font-bold text-gray-700 mb-1">{category}</label>
-                                                <select 
-                                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
-                                                    onChange={(e) => handleSelectChange(category, e.target.value)}
-                                                >
-                                                    <option value="">-- Seleccionar --</option>
-                                                    {options.map((opt, i) => (
-                                                        <option key={i} value={opt.Codigo_Opcion}>
-                                                            {opt.Descripcion} {opt.Precio > 0 ? `(+${opt.Precio}€)` : ''}
-                                                        </option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                        ))}
-                                        <button 
-                                            onClick={handleQuote}
-                                            disabled={loading}
-                                            className="w-full bg-green-600 text-white font-bold py-3 rounded mt-4 hover:bg-green-700 transition"
-                                        >
-                                            {loading ? 'Calculando...' : 'Cotizar Ahora'}
-                                        </button>
-                                    </>
-                                ) : (
-                                    <div className="text-center">
-                                        <div className="text-5xl text-green-500 mb-4"><i className="fas fa-check-circle"></i></div>
-                                        <h3 className="text-xl font-bold mb-2">¡Cotización Lista!</h3>
-                                        <p className="text-gray-600 mb-4">Código Generado: <strong>{quoteResult.finalCode}</strong></p>
-                                        <p className="text-3xl font-bold text-blue-600 mb-6">{quoteResult.totalPrice} EUR</p>
-                                        <button onClick={() => setQuoteResult(null)} className="text-blue-500 underline">Nueva Configuración</button>
-                                    </div>
-                                )}
+                                <div className="p-6 overflow-y-auto flex-1">
+                                    {Object.entries(options).map(([cat, opts]) => (
+                                        <div key={cat} className="mb-4">
+                                            <label className="block text-sm font-bold text-gray-700 mb-1">{cat}</label>
+                                            <select 
+                                                className="w-full border p-2 rounded"
+                                                onChange={e => setSelections({...selections, [cat]: e.target.value})}
+                                            >
+                                                <option value="">-- Seleccionar --</option>
+                                                {opts.map((o, i) => (
+                                                    <option key={i} value={o.Codigo_Opcion}>
+                                                        {o.Descripcion} {o.Precio > 0 ? `(+${o.Precio})` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="p-4 border-t">
+                                    <button onClick={addToCart} className="w-full bg-green-600 text-white py-2 rounded font-bold hover:bg-green-700">
+                                        Agregar al Carrito
+                                    </button>
+                                </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             );
         }
