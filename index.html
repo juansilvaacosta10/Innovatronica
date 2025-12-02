@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cotizador AI Innovatronica</title>
+    <!-- Usamos React y Tailwind directamente para que funcione sin instalar nada -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f3f4f6; }
+        .chat-bubble { max-width: 80%; padding: 10px 15px; border-radius: 15px; margin-bottom: 10px; }
+        .user-msg { background-color: #2563eb; color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        .ai-msg { background-color: #e5e7eb; color: #1f2937; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .typing-indicator span { display: inline-block; width: 6px; height: 6px; background-color: #555; border-radius: 50%; animation: typing 1.4s infinite ease-in-out both; margin: 0 2px; }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // --- CONFIGURACIÓN ---
+        // CAMBIA ESTAS URLS POR LAS DE TUS WEBHOOKS DE N8N (PRODUCTION URLS)
+        const N8N_CHAT_URL = "TU_WEBHOOK_CHAT_AQUI"; 
+        const N8N_OPTIONS_URL = "TU_WEBHOOK_OPCIONES_AQUI"; 
+        const N8N_QUOTE_URL = "TU_WEBHOOK_COTIZAR_AQUI";
+
+        const { useState, useEffect, useRef } = React;
+
+        function App() {
+            const [messages, setMessages] = useState([
+                { sender: 'ai', text: 'Hola, soy la IA de Innovatronica. ¿Qué instrumento necesitas cotizar hoy?' }
+            ]);
+            const [input, setInput] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [showForm, setShowForm] = useState(false);
+            const [currentModel, setCurrentModel] = useState(null);
+            const [formOptions, setFormOptions] = useState({});
+            const [selections, setSelections] = useState({});
+            const [quoteResult, setQuoteResult] = useState(null);
+            const messagesEndRef = useRef(null);
+
+            const scrollToBottom = () => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); };
+            useEffect(scrollToBottom, [messages]);
+
+            // Enviar mensaje al Chatbot
+            const handleSend = async () => {
+                if (!input.trim()) return;
+                const userText = input;
+                setMessages(prev => [...prev, { sender: 'user', text: userText }]);
+                setInput('');
+                setLoading(true);
+
+                try {
+                    const response = await fetch(N8N_CHAT_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: userText })
+                    });
+                    const data = await response.json();
+
+                    // La IA puede responder texto O decirnos que activemos el formulario
+                    if (data.action === 'show_form') {
+                        setMessages(prev => [...prev, { sender: 'ai', text: `Entendido. He detectado que necesitas el modelo ${data.model}. Cargando opciones...` }]);
+                        loadForm(data.model);
+                    } else {
+                        setMessages(prev => [...prev, { sender: 'ai', text: data.response }]);
+                    }
+                } catch (error) {
+                    setMessages(prev => [...prev, { sender: 'ai', text: 'Error conectando con n8n.' }]);
+                }
+                setLoading(false);
+            };
+
+            // Cargar opciones desde Google Sheets (vía n8n)
+            const loadForm = async (modelId) => {
+                setLoading(true);
+                try {
+                    const response = await fetch(N8N_OPTIONS_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model: modelId })
+                    });
+                    const data = await response.json(); // Esperamos { categories: { "Conexión": [opt1, opt2], ... } }
+                    setFormOptions(data.categories);
+                    setCurrentModel(modelId);
+                    setShowForm(true);
+                } catch (error) {
+                    alert("Error cargando las opciones del modelo.");
+                }
+                setLoading(false);
+            };
+
+            // Manejar cambios en el formulario
+            const handleSelectChange = (category, value) => {
+                setSelections(prev => ({ ...prev, [category]: value }));
+            };
+
+            // Enviar a cotizar
+            const handleQuote = async () => {
+                setLoading(true);
+                try {
+                    const response = await fetch(N8N_QUOTE_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ model: currentModel, selections })
+                    });
+                    const data = await response.json();
+                    setQuoteResult(data);
+                } catch (error) {
+                    alert("Error generando la cotización.");
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="flex h-screen">
+                    {/* Panel Izquierdo: Chat */}
+                    <div className={`w-full md:w-1/2 flex flex-col border-r bg-white ${showForm ? 'hidden md:flex' : 'flex'}`}>
+                        <div className="p-4 border-b bg-blue-600 text-white font-bold flex justify-between items-center">
+                            <span><i className="fas fa-robot mr-2"></i> Asistente Innovatronica</span>
+                        </div>
+                        <div className="flex-1 overflow-y-auto p-4 flex flex-col">
+                            {messages.map((msg, idx) => (
+                                <div key={idx} className={`chat-bubble ${msg.sender === 'user' ? 'user-msg' : 'ai-msg'}`}>
+                                    {msg.text}
+                                </div>
+                            ))}
+                            {loading && !showForm && <div className="typing-indicator p-2"><span></span><span></span><span></span></div>}
+                            <div ref={messagesEndRef} />
+                        </div>
+                        <div className="p-4 border-t bg-gray-50 flex">
+                            <input 
+                                type="text" 
+                                className="flex-1 p-2 border rounded-l focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Escribe aquí..."
+                                value={input}
+                                onChange={(e) => setInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                            />
+                            <button onClick={handleSend} className="bg-blue-600 text-white p-2 rounded-r hover:bg-blue-700 w-12">
+                                <i className="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Panel Derecho: Configurador */}
+                    <div className={`w-full md:w-1/2 bg-gray-50 overflow-y-auto p-8 ${showForm ? 'block' : 'hidden md:block'}`}>
+                        {!showForm ? (
+                            <div className="h-full flex flex-col items-center justify-center text-gray-400">
+                                <i className="fas fa-cogs text-6xl mb-4"></i>
+                                <p>Habla con la IA para identificar el modelo y cargar el configurador.</p>
+                            </div>
+                        ) : (
+                            <div className="bg-white p-6 rounded-lg shadow-lg">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h2 className="text-2xl font-bold text-gray-800">Configurar {currentModel}</h2>
+                                    <button onClick={() => setShowForm(false)} className="text-sm text-red-500 md:hidden">Cerrar</button>
+                                </div>
+
+                                {!quoteResult ? (
+                                    <>
+                                        {Object.entries(formOptions).map(([category, options]) => (
+                                            <div key={category} className="mb-4">
+                                                <label className="block text-sm font-bold text-gray-700 mb-1">{category}</label>
+                                                <select 
+                                                    className="w-full p-2 border rounded focus:ring-2 focus:ring-blue-500"
+                                                    onChange={(e) => handleSelectChange(category, e.target.value)}
+                                                >
+                                                    <option value="">-- Seleccionar --</option>
+                                                    {options.map((opt, i) => (
+                                                        <option key={i} value={opt.Codigo_Opcion}>
+                                                            {opt.Descripcion} {opt.Precio > 0 ? `(+${opt.Precio}€)` : ''}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ))}
+                                        <button 
+                                            onClick={handleQuote}
+                                            disabled={loading}
+                                            className="w-full bg-green-600 text-white font-bold py-3 rounded mt-4 hover:bg-green-700 transition"
+                                        >
+                                            {loading ? 'Calculando...' : 'Cotizar Ahora'}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <div className="text-center">
+                                        <div className="text-5xl text-green-500 mb-4"><i className="fas fa-check-circle"></i></div>
+                                        <h3 className="text-xl font-bold mb-2">¡Cotización Lista!</h3>
+                                        <p className="text-gray-600 mb-4">Código Generado: <strong>{quoteResult.finalCode}</strong></p>
+                                        <p className="text-3xl font-bold text-blue-600 mb-6">{quoteResult.totalPrice} EUR</p>
+                                        <button onClick={() => setQuoteResult(null)} className="text-blue-500 underline">Nueva Configuración</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
