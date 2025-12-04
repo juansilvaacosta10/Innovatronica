@@ -9,7 +9,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- Marked.js -->
+    <!-- Marked.js (Para formato de texto rico) -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- FontAwesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -20,7 +20,7 @@
         .typing-indicator span:nth-child(3) { animation-delay: .4s; }
         @keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
 
-        /* Estilos Markdown */
+        /* Estilos Markdown para que el texto se vea profesional */
         .prose ul { list-style-type: disc; margin-left: 1.5em; margin-bottom: 0.5em; }
         .prose ol { list-style-type: decimal; margin-left: 1.5em; margin-bottom: 0.5em; }
         .prose strong { font-weight: 700; color: #1e293b; }
@@ -40,10 +40,9 @@
             <span class="text-[10px] text-gray-400 font-medium tracking-wider mt-1">ASISTENTE DE INGENIERÍA</span>
         </div>
         
-        <!-- Lado Derecho: Logo (2da foto) -->
-        <!-- IMPORTANTE: Reemplaza este src con tu enlace directo (Click derecho -> Copiar dirección de imagen) -->
+        <!-- Lado Derecho: Logo (Tu imagen de Header) -->
         <div class="h-full flex items-center">
-            <img src="https://cdn-icons-png.flaticon.com/512/6024/6024190.png" 
+            <img src="https://i.imgur.com/xXHIPuk.png" 
                  alt="Logo Innovatrónica" 
                  class="h-12 w-auto object-contain">
         </div>
@@ -54,10 +53,9 @@
         
         <!-- Mensaje de bienvenida -->
         <div class="flex gap-4">
-            <!-- Foto del Bot (1ra foto) -->
-            <!-- IMPORTANTE: Reemplaza este src con tu enlace directo -->
+            <!-- Foto del Bot (Tu imagen de Profile) -->
             <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm bg-white">
-                <img src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png" 
+                <img src="https://i.imgur.com/CkTBVTk.png" 
                      alt="Bot AI" 
                      class="w-full h-full object-cover">
             </div>
@@ -75,10 +73,9 @@
                 <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm flex items-center justify-center"
                      :class="msg.isUser ? 'bg-gray-800' : 'bg-white'">
                     
-                    <!-- Si es el BOT: Muestra la imagen -->
+                    <!-- Si es el BOT: Muestra tu imagen de Profile -->
                     <template x-if="!msg.isUser">
-                        <!-- IMPORTANTE: Reemplaza este src con tu enlace directo -->
-                        <img src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png" 
+                        <img src="https://i.imgur.com/CkTBVTk.png" 
                              alt="Bot AI" 
                              class="w-full h-full object-cover">
                     </template>
@@ -93,6 +90,7 @@
                 <div class="p-4 rounded-2xl shadow-sm border border-gray-100 max-w-[85%] text-sm overflow-hidden"
                      :class="msg.isUser ? 'bg-gray-800 text-white rounded-tr-none' : 'bg-white text-gray-700 rounded-tl-none'">
                     
+                    <!-- Renderizado de Markdown a HTML -->
                     <div class="prose" x-html="parseMessage(msg.text)"></div>
                     
                     <!-- Botón Configurar -->
@@ -140,13 +138,10 @@
             </div>
         </template>
 
-        <!-- Loading -->
+        <!-- Loading Indicator -->
         <div x-show="loading" class="flex gap-4">
             <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm bg-white">
-                <!-- IMPORTANTE: Reemplaza este src con tu enlace directo -->
-                <img src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png" 
-                     alt="Bot AI" 
-                     class="w-full h-full object-cover">
+                <img src="https://i.imgur.com/CkTBVTk.png" alt="Bot AI" class="w-full h-full object-cover">
             </div>
             <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 typing-indicator flex gap-1 items-center h-12">
                 <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
@@ -156,7 +151,7 @@
         </div>
     </main>
 
-    <!-- Input -->
+    <!-- Input Area -->
     <div class="p-4 bg-white border-t border-gray-200">
         <form @submit.prevent="sendMessage" class="flex gap-2 max-w-4xl mx-auto">
             <input type="text" x-model="input" placeholder="Ej: Necesito medir flujo de ácido sulfúrico..." 
@@ -171,7 +166,7 @@
     <script>
         function app() {
             return {
-                // TU URL DE WEBHOOK
+                // TU URL DE WEBHOOK (Mantenemos la que tenías)
                 webhookUrl: 'https://1.jisn8n.work/webhook/innovatronica-api', 
                 input: '',
                 loading: false,
