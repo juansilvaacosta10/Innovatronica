@@ -9,23 +9,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- Marked.js (Para convertir **negrita** a HTML real) -->
+    <!-- Marked.js -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- FontAwesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
     <style>
-        /* Animación de escribiendo */
         .typing-indicator span { animation: blink 1.4s infinite both; }
         .typing-indicator span:nth-child(2) { animation-delay: .2s; }
         .typing-indicator span:nth-child(3) { animation-delay: .4s; }
         @keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
 
-        /* ESTILOS PARA EL MARKDOWN (IMPORTANTE) */
-        /* Tailwind quita los estilos por defecto, aquí los devolvemos dentro del chat */
+        /* Estilos Markdown */
         .prose ul { list-style-type: disc; margin-left: 1.5em; margin-bottom: 0.5em; }
         .prose ol { list-style-type: decimal; margin-left: 1.5em; margin-bottom: 0.5em; }
-        .prose strong { font-weight: 700; color: #1e293b; } /* Negrita más oscura */
+        .prose strong { font-weight: 700; color: #1e293b; }
         .prose p { margin-bottom: 0.5em; }
         .prose h1, .prose h2, .prose h3 { font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
         .prose a { color: #2563eb; text-decoration: underline; }
@@ -34,66 +32,76 @@
 
 <body class="bg-slate-50 h-screen flex flex-col font-sans" x-data="app()" x-init="init()">
 
-    <!-- Header -->
-    <header class="bg-white border-b border-gray-200 p-4 shadow-sm flex justify-between items-center">
-        <div class="flex items-center gap-2">
-            <div class="bg-blue-600 text-white p-2 rounded-lg">
-                <i class="fa-solid fa-bolt"></i>
-            </div>
-            <h1 class="font-bold text-gray-800 text-lg">Innovatrónica AI</h1>
+    <!-- Header Personalizado -->
+    <header class="bg-white border-b border-gray-200 p-4 shadow-sm flex justify-between items-center h-20">
+        <!-- Lado Izquierdo: Título -->
+        <h1 class="font-extrabold text-gray-800 text-2xl tracking-tight">INNOVATRONICA AI</h1>
+        
+        <!-- Lado Derecho: Logo (2da foto) -->
+        <div class="h-full flex items-center">
+            <img src="https://i.imgur.com/iHgkvId.png" alt="Logo Innovatrónica" class="h-12 w-auto object-contain">
         </div>
-        <span class="text-xs text-gray-400">Cotizador KROHNE v2.0</span>
     </header>
 
     <!-- Main Chat Area -->
-    <main class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-container">
+    <main class="flex-1 overflow-y-auto p-4 space-y-6" id="chat-container">
+        
         <!-- Mensaje de bienvenida -->
-        <div class="flex gap-3">
-            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                <i class="fa-solid fa-robot"></i>
+        <div class="flex gap-4">
+            <!-- Foto del Bot (1ra foto) -->
+            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm">
+                <img src="https://i.imgur.com/FIn8bLR.png" alt="Bot AI" class="w-full h-full object-cover">
             </div>
-            <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]">
+            
+            <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]">
                 <p class="text-gray-700 text-sm">Hola, soy tu <strong>Ingeniero Experto</strong>. Describe el proceso, fluido o duda técnica y consultaré los manuales para ayudarte.</p>
             </div>
         </div>
 
         <!-- Loop de mensajes -->
         <template x-for="msg in messages" :key="msg.id">
-            <div class="flex gap-3" :class="msg.isUser ? 'flex-row-reverse' : ''">
-                <!-- Icono -->
-                <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                     :class="msg.isUser ? 'bg-gray-800 text-white' : 'bg-blue-100 text-blue-600'">
-                    <i :class="msg.isUser ? 'fa-solid fa-user' : 'fa-solid fa-robot'"></i>
+            <div class="flex gap-4" :class="msg.isUser ? 'flex-row-reverse' : ''">
+                
+                <!-- Avatar Dinámico -->
+                <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm flex items-center justify-center"
+                     :class="msg.isUser ? 'bg-gray-800' : 'bg-white'">
+                    
+                    <!-- Si es el BOT: Muestra la imagen -->
+                    <template x-if="!msg.isUser">
+                        <img src="https://i.imgur.com/FIn8bLR.png" alt="Bot AI" class="w-full h-full object-cover">
+                    </template>
+                    
+                    <!-- Si es el USUARIO: Muestra icono -->
+                    <template x-if="msg.isUser">
+                        <i class="fa-solid fa-user text-white text-lg"></i>
+                    </template>
                 </div>
 
                 <!-- Burbuja de Texto -->
-                <div class="p-3 rounded-2xl shadow-sm border border-gray-100 max-w-[85%] text-sm overflow-hidden"
+                <div class="p-4 rounded-2xl shadow-sm border border-gray-100 max-w-[85%] text-sm overflow-hidden"
                      :class="msg.isUser ? 'bg-gray-800 text-white rounded-tr-none' : 'bg-white text-gray-700 rounded-tl-none'">
                     
-                    <!-- AQUÍ ESTÁ LA MAGIA: x-html en lugar de x-text -->
-                    <!-- Usamos la clase 'prose' para aplicar los estilos de negrita y listas -->
                     <div class="prose" x-html="parseMessage(msg.text)"></div>
                     
-                    <!-- Botón Especial: Generar Formulario -->
+                    <!-- Botón Configurar -->
                     <template x-if="msg.modelId && !msg.formGenerated">
                         <button @click="loadForm(msg.modelId, msg.id)" 
-                                class="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 shadow-sm">
+                                class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 shadow-sm">
                             <i class="fa-solid fa-list-check"></i> Configurar Modelo <span x-text="msg.modelId"></span>
                         </button>
                     </template>
 
-                    <!-- Área del Formulario Dinámico -->
+                    <!-- Formulario -->
                     <template x-if="msg.showForm">
                         <div class="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                             <h3 class="font-bold text-gray-800 mb-3 border-b pb-2 text-xs uppercase tracking-wide">
                                 Configuración: <span x-text="msg.modelId" class="text-blue-600"></span>
                             </h3>
                             
-                            <!-- Loop Categorías -->
                             <template x-for="(options, category) in msg.formData" :key="category">
                                 <div class="mb-4">
                                     <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1" x-text="category"></label>
-                                    <select class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 p-2 bg-white"
+                                    <select class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 p-2 bg-white text-gray-800"
                                             @change="updateSelection(category, $el.value, msg.id)">
                                         <option value="">Seleccionar...</option>
                                         <template x-for="opt in options" :key="opt.code">
@@ -110,9 +118,9 @@
                         </div>
                     </template>
                     
-                    <!-- Link de Descarga -->
+                    <!-- Descarga PDF -->
                     <template x-if="msg.pdfUrl">
-                        <a :href="msg.pdfUrl" target="_blank" class="mt-3 block text-center bg-gray-900 hover:bg-black text-white py-3 rounded-lg text-xs font-bold transition shadow-md">
+                        <a :href="msg.pdfUrl" target="_blank" class="mt-4 block text-center bg-gray-900 hover:bg-black text-white py-3 rounded-lg text-xs font-bold transition shadow-md">
                             <i class="fa-solid fa-download"></i> Descargar Cotización PDF
                         </a>
                     </template>
@@ -120,12 +128,12 @@
             </div>
         </template>
 
-        <!-- Loading Indicator -->
-        <div x-show="loading" class="flex gap-3">
-            <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                <i class="fa-solid fa-robot"></i>
+        <!-- Loading -->
+        <div x-show="loading" class="flex gap-4">
+            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm">
+                <img src="https://i.imgur.com/FIn8bLR.png" alt="Bot AI" class="w-full h-full object-cover">
             </div>
-            <div class="bg-white p-3 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 typing-indicator flex gap-1 items-center h-10">
+            <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 typing-indicator flex gap-1 items-center h-12">
                 <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
                 <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
                 <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
@@ -133,7 +141,7 @@
         </div>
     </main>
 
-    <!-- Input Area -->
+    <!-- Input -->
     <div class="p-4 bg-white border-t border-gray-200">
         <form @submit.prevent="sendMessage" class="flex gap-2 max-w-4xl mx-auto">
             <input type="text" x-model="input" placeholder="Ej: Necesito medir flujo de ácido sulfúrico..." 
@@ -165,9 +173,7 @@
                     this.sessionId = storedSession;
                 },
 
-                // Función para convertir Markdown a HTML
                 parseMessage(text) {
-                    // Usamos la librería marked que importamos arriba
                     return marked.parse(text);
                 },
 
