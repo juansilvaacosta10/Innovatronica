@@ -33,13 +33,19 @@
 <body class="bg-slate-50 h-screen flex flex-col font-sans" x-data="app()" x-init="init()">
 
     <!-- Header Personalizado -->
-    <header class="bg-white border-b border-gray-200 p-4 shadow-sm flex justify-between items-center h-20">
+    <header class="bg-white border-b border-gray-200 px-6 py-3 shadow-sm flex justify-between items-center h-20">
         <!-- Lado Izquierdo: Título -->
-        <h1 class="font-extrabold text-gray-800 text-2xl tracking-tight">INNOVATRONICA AI</h1>
+        <div class="flex flex-col justify-center">
+            <h1 class="font-extrabold text-gray-800 text-2xl tracking-tight leading-none">INNOVATRONICA AI</h1>
+            <span class="text-[10px] text-gray-400 font-medium tracking-wider mt-1">ASISTENTE DE INGENIERÍA</span>
+        </div>
         
         <!-- Lado Derecho: Logo (2da foto) -->
+        <!-- IMPORTANTE: Reemplaza este src con tu enlace directo (Click derecho -> Copiar dirección de imagen) -->
         <div class="h-full flex items-center">
-            <img src="https://i.imgur.com/iHgkvId.png" alt="Logo Innovatrónica" class="h-12 w-auto object-contain">
+            <img src="https://cdn-icons-png.flaticon.com/512/6024/6024190.png" 
+                 alt="Logo Innovatrónica" 
+                 class="h-12 w-auto object-contain">
         </div>
     </header>
 
@@ -49,8 +55,11 @@
         <!-- Mensaje de bienvenida -->
         <div class="flex gap-4">
             <!-- Foto del Bot (1ra foto) -->
-            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                <img src="https://i.imgur.com/FIn8bLR.png" alt="Bot AI" class="w-full h-full object-cover">
+            <!-- IMPORTANTE: Reemplaza este src con tu enlace directo -->
+            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm bg-white">
+                <img src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png" 
+                     alt="Bot AI" 
+                     class="w-full h-full object-cover">
             </div>
             
             <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]">
@@ -68,7 +77,10 @@
                     
                     <!-- Si es el BOT: Muestra la imagen -->
                     <template x-if="!msg.isUser">
-                        <img src="https://i.imgur.com/FIn8bLR.png" alt="Bot AI" class="w-full h-full object-cover">
+                        <!-- IMPORTANTE: Reemplaza este src con tu enlace directo -->
+                        <img src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png" 
+                             alt="Bot AI" 
+                             class="w-full h-full object-cover">
                     </template>
                     
                     <!-- Si es el USUARIO: Muestra icono -->
@@ -130,8 +142,11 @@
 
         <!-- Loading -->
         <div x-show="loading" class="flex gap-4">
-            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                <img src="https://i.imgur.com/FIn8bLR.png" alt="Bot AI" class="w-full h-full object-cover">
+            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm bg-white">
+                <!-- IMPORTANTE: Reemplaza este src con tu enlace directo -->
+                <img src="https://cdn-icons-png.flaticon.com/512/4712/4712027.png" 
+                     alt="Bot AI" 
+                     class="w-full h-full object-cover">
             </div>
             <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 typing-indicator flex gap-1 items-center h-12">
                 <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
