@@ -3,185 +3,423 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cotizador Inteligente Innovatrónica</title>
+    <title>Innovatrónica AI - Suite de Ingeniería</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Alpine.js -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <!-- Marked.js (Para formato de texto rico) -->
+    <!-- Marked.js -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <!-- FontAwesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 
+    <!-- Configuración de Colores Corporativos -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        innoBlue: '#17559b',
+                        innoDark: '#0f3a6b',
+                        innoYellow: '#f6b638',
+                    }
+                }
+            }
+        }
+    </script>
+
     <style>
+        /* Animaciones */
         .typing-indicator span { animation: blink 1.4s infinite both; }
         .typing-indicator span:nth-child(2) { animation-delay: .2s; }
         .typing-indicator span:nth-child(3) { animation-delay: .4s; }
         @keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
 
-        /* Estilos Markdown para que el texto se vea profesional */
+        /* Markdown Styles */
         .prose ul { list-style-type: disc; margin-left: 1.5em; margin-bottom: 0.5em; }
         .prose ol { list-style-type: decimal; margin-left: 1.5em; margin-bottom: 0.5em; }
-        .prose strong { font-weight: 700; color: #1e293b; }
+        .prose strong { font-weight: 700; color: #17559b; }
         .prose p { margin-bottom: 0.5em; }
-        .prose h1, .prose h2, .prose h3 { font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
-        .prose a { color: #2563eb; text-decoration: underline; }
+        .prose a { color: #17559b; text-decoration: underline; }
+
+        /* Scrollbar fina */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
     </style>
 </head>
 
-<body class="bg-slate-50 h-screen flex flex-col font-sans" x-data="app()" x-init="init()">
+<body class="bg-slate-50 h-screen flex font-sans overflow-hidden" x-data="app()" x-init="init()">
 
-    <!-- Header Personalizado -->
-    <header class="bg-white border-b border-gray-200 px-6 py-3 shadow-sm flex justify-between items-center h-20">
-        <!-- Lado Izquierdo: Título -->
-        <div class="flex flex-col justify-center">
-            <h1 class="font-extrabold text-gray-800 text-2xl tracking-tight leading-none">INNOVATRONICA AI</h1>
-            <span class="text-[10px] text-gray-400 font-medium tracking-wider mt-1">ASISTENTE DE INGENIERÍA</span>
-        </div>
+    <!-- SIDEBAR (Historial de Chats) -->
+    <aside class="w-64 bg-innoDark text-white flex flex-col flex-shrink-0 transition-all duration-300" 
+           :class="sidebarOpen ? 'translate-x-0' : '-translate-x-64 absolute z-50 h-full md:relative md:translate-x-0'">
         
-        <!-- Lado Derecho: Logo (Tu imagen de Header) -->
-        <div class="h-full flex items-center">
-            <img src="https://imgur.com/xXHIPuk" 
-                 alt="Logo Innovatrónica" 
-                 class="h-12 w-auto object-contain">
+        <!-- Botón Nuevo Chat -->
+        <div class="p-4">
+            <button @click="createNewChat()" 
+                    class="w-full flex items-center gap-3 px-4 py-3 bg-innoBlue hover:bg-blue-600 border border-white/10 rounded-lg transition shadow-md group">
+                <i class="fa-solid fa-plus text-innoYellow group-hover:rotate-90 transition duration-300"></i>
+                <span class="font-semibold text-sm">Nueva Consulta</span>
+            </button>
         </div>
-    </header>
 
-    <!-- Main Chat Area -->
-    <main class="flex-1 overflow-y-auto p-4 space-y-6" id="chat-container">
-        
-        <!-- Mensaje de bienvenida -->
-        <div class="flex gap-4">
-            <!-- Foto del Bot (Tu imagen de Profile) -->
-            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm bg-white">
-                <img src="https://imgur.com/CkTBVTk" 
-                     alt="Bot AI" 
-                     class="w-full h-full object-cover">
-            </div>
+        <!-- Lista de Chats -->
+        <div class="flex-1 overflow-y-auto px-2 space-y-1">
+            <div class="px-2 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Historial</div>
             
-            <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 max-w-[85%]">
-                <p class="text-gray-700 text-sm">Hola, soy tu <strong>Ingeniero Experto</strong>. Describe el proceso, fluido o duda técnica y consultaré los manuales para ayudarte.</p>
-            </div>
+            <template x-for="chat in chatHistory" :key="chat.id">
+                <div @click="loadChat(chat.id)" 
+                     class="group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition text-sm"
+                     :class="activeChatId === chat.id ? 'bg-white/10 text-white border-l-4 border-innoYellow' : 'text-gray-300 hover:bg-white/5'">
+                    
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <i class="fa-regular fa-message text-xs"></i>
+                        <span class="truncate w-32" x-text="chat.title || 'Nueva conversación'"></span>
+                    </div>
+
+                    <!-- Botón Borrar (Solo visible al hacer hover) -->
+                    <button @click.stop="deleteChat(chat.id)" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+            </template>
         </div>
 
-        <!-- Loop de mensajes -->
-        <template x-for="msg in messages" :key="msg.id">
-            <div class="flex gap-4" :class="msg.isUser ? 'flex-row-reverse' : ''">
-                
-                <!-- Avatar Dinámico -->
-                <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm flex items-center justify-center"
-                     :class="msg.isUser ? 'bg-gray-800' : 'bg-white'">
-                    
-                    <!-- Si es el BOT: Muestra tu imagen de Profile -->
-                    <template x-if="!msg.isUser">
-                        <img src="https://https://imgur.com/CkTBVTk" 
-                             alt="Bot AI" 
-                             class="w-full h-full object-cover">
-                    </template>
-                    
-                    <!-- Si es el USUARIO: Muestra icono -->
-                    <template x-if="msg.isUser">
-                        <i class="fa-solid fa-user text-white text-lg"></i>
-                    </template>
+        <!-- Footer Sidebar -->
+        <div class="p-4 border-t border-white/10 text-xs text-center text-gray-400">
+            Innovatrónica AI v3.0
+        </div>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="flex-1 flex flex-col h-full relative w-full">
+        
+        <!-- HEADER -->
+        <header class="bg-white border-b border-gray-200 px-6 py-2 shadow-sm flex justify-between items-center h-20 z-10">
+            
+            <!-- Izquierda: Toggle Sidebar + Logo -->
+            <div class="flex items-center gap-4">
+                <!-- Botón hamburguesa (Móvil) -->
+                <button @click="sidebarOpen = !sidebarOpen" class="md:hidden text-gray-500 hover:text-innoBlue">
+                    <i class="fa-solid fa-bars text-xl"></i>
+                </button>
+
+                <!-- LOGO HORIZONTAL (Arreglado) -->
+                <!-- Quitamos restricciones cuadradas, permitimos ancho automático -->
+                <div class="h-14 flex items-center">
+                    <img src="https://i.imgur.com/xXHIPuk.png" 
+                         alt="Logo Innovatrónica" 
+                         class="h-full w-auto object-contain">
                 </div>
+            </div>
 
-                <!-- Burbuja de Texto -->
-                <div class="p-4 rounded-2xl shadow-sm border border-gray-100 max-w-[85%] text-sm overflow-hidden"
-                     :class="msg.isUser ? 'bg-gray-800 text-white rounded-tr-none' : 'bg-white text-gray-700 rounded-tl-none'">
-                    
-                    <!-- Renderizado de Markdown a HTML -->
-                    <div class="prose" x-html="parseMessage(msg.text)"></div>
-                    
-                    <!-- Botón Configurar -->
-                    <template x-if="msg.modelId && !msg.formGenerated">
-                        <button @click="loadForm(msg.modelId, msg.id)" 
-                                class="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 shadow-sm">
-                            <i class="fa-solid fa-list-check"></i> Configurar Modelo <span x-text="msg.modelId"></span>
-                        </button>
-                    </template>
+            <!-- Derecha: Carrito de Cotización -->
+            <div class="flex items-center gap-3">
+                
+                <!-- Botón Configurar (Aparece dinámicamente) -->
+                <template x-if="pendingModel">
+                    <button @click="openConfigModal()" 
+                            class="hidden sm:flex animate-pulse bg-innoYellow text-innoBlue hover:bg-yellow-400 font-bold py-2 px-4 rounded-lg shadow-sm transition items-center gap-2 text-sm">
+                        <i class="fa-solid fa-gear fa-spin"></i>
+                        <span>Configurar <span x-text="pendingModel"></span></span>
+                    </button>
+                </template>
 
-                    <!-- Formulario -->
-                    <template x-if="msg.showForm">
-                        <div class="mt-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                            <h3 class="font-bold text-gray-800 mb-3 border-b pb-2 text-xs uppercase tracking-wide">
-                                Configuración: <span x-text="msg.modelId" class="text-blue-600"></span>
-                            </h3>
-                            
-                            <template x-for="(options, category) in msg.formData" :key="category">
-                                <div class="mb-4">
-                                    <label class="block text-[10px] font-bold text-gray-500 uppercase mb-1" x-text="category"></label>
-                                    <select class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 p-2 bg-white text-gray-800"
-                                            @change="updateSelection(category, $el.value, msg.id)">
-                                        <option value="">Seleccionar...</option>
-                                        <template x-for="opt in options" :key="opt.code">
-                                            <option :value="opt.code" x-text="opt.desc"></option>
-                                        </template>
-                                    </select>
-                                </div>
+                <!-- Dropdown Cotizar -->
+                <div class="relative" x-data="{ openDropdown: false }">
+                    <button @click="openDropdown = !openDropdown" 
+                            :class="quoteItems.length > 0 ? 'bg-innoBlue text-white hover:bg-blue-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
+                            :disabled="quoteItems.length === 0"
+                            class="font-bold py-2 px-4 rounded-lg shadow-sm transition flex items-center gap-2 text-sm">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span class="hidden sm:inline">Cotizar</span>
+                        <span x-show="quoteItems.length > 0" class="bg-innoYellow text-innoBlue text-[10px] px-2 py-0.5 rounded-full font-extrabold" x-text="quoteItems.length"></span>
+                    </button>
+
+                    <!-- Menú Desplegable -->
+                    <div x-show="openDropdown" 
+                         @click.away="openDropdown = false"
+                         class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 overflow-hidden z-50"
+                         style="display: none;">
+                        
+                        <div class="bg-gray-50 px-4 py-2 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase flex justify-between">
+                            <span>Items Agregados</span>
+                            <button @click="quoteItems = []; saveState()" class="text-red-500 hover:underline">Vaciar</button>
+                        </div>
+
+                        <ul class="max-h-60 overflow-y-auto">
+                            <template x-for="(item, index) in quoteItems" :key="index">
+                                <li class="px-4 py-3 border-b border-gray-100 hover:bg-blue-50 flex justify-between items-center">
+                                    <div>
+                                        <p class="font-bold text-innoBlue text-sm" x-text="item.model"></p>
+                                        <p class="text-xs text-gray-500" x-text="Object.keys(item.codes).length + ' opciones'"></p>
+                                    </div>
+                                    <button @click="removeItem(index)" class="text-gray-400 hover:text-red-500 transition p-2">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </li>
                             </template>
+                        </ul>
 
-                            <button @click="generateQuote(msg.id)" 
-                                    class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-xs font-bold transition flex items-center justify-center gap-2 mt-2 shadow-md">
-                                <i class="fa-solid fa-file-invoice-dollar"></i> Generar Cotización
+                        <div class="p-3 bg-gray-50">
+                            <button @click="finalizeQuote()" class="w-full bg-innoBlue hover:bg-blue-800 text-white font-bold py-2 rounded-lg text-sm shadow-md transition flex justify-center gap-2">
+                                <i class="fa-solid fa-paper-plane"></i> Generar PDF Final
                             </button>
                         </div>
-                    </template>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- CHAT AREA -->
+        <main class="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50" id="chat-container">
+            
+            <!-- Bienvenida (Solo si no hay mensajes) -->
+            <div x-show="messages.length === 0" class="flex flex-col items-center justify-center h-full text-center opacity-80">
+                <div class="w-20 h-20 mb-4 rounded-full bg-white border-4 border-innoYellow shadow-lg p-2">
+                    <img src="https://i.imgur.com/CkTBVTk.png" class="w-full h-full object-cover rounded-full">
+                </div>
+                <h2 class="text-2xl font-bold text-innoBlue mb-2">Innovatrónica AI</h2>
+                <p class="text-gray-500 max-w-md">Selecciona "Nueva Consulta" para empezar o continúa una conversación anterior desde el menú lateral.</p>
+            </div>
+
+            <!-- Mensajes -->
+            <template x-for="msg in messages" :key="msg.id">
+                <div class="flex gap-4 max-w-4xl mx-auto" :class="msg.isUser ? 'flex-row-reverse' : ''">
                     
-                    <!-- Descarga PDF -->
-                    <template x-if="msg.pdfUrl">
-                        <a :href="msg.pdfUrl" target="_blank" class="mt-4 block text-center bg-gray-900 hover:bg-black text-white py-3 rounded-lg text-xs font-bold transition shadow-md">
-                            <i class="fa-solid fa-download"></i> Descargar Cotización PDF
-                        </a>
+                    <!-- Avatar -->
+                    <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 shadow-sm flex items-center justify-center"
+                         :class="msg.isUser ? 'border-gray-300 bg-gray-200' : 'border-innoYellow bg-white'">
+                        <template x-if="!msg.isUser">
+                            <img src="https://i.imgur.com/CkTBVTk.png" class="w-full h-full object-cover">
+                        </template>
+                        <template x-if="msg.isUser">
+                            <i class="fa-solid fa-user text-gray-500"></i>
+                        </template>
+                    </div>
+
+                    <!-- Burbuja -->
+                    <div class="p-4 rounded-2xl shadow-sm text-sm overflow-hidden relative group max-w-[85%]"
+                         :class="msg.isUser ? 'bg-innoBlue text-white rounded-tr-none' : 'bg-white text-gray-700 border border-gray-200 rounded-tl-none'">
+                        
+                        <div class="prose" :class="msg.isUser ? 'text-white prose-invert' : ''" x-html="parseMessage(msg.text)"></div>
+                        
+                        <!-- Botón Configurar (Inline) -->
+                        <template x-if="msg.modelId && !msg.formGenerated">
+                            <button @click="loadForm(msg.modelId, msg.id)" 
+                                    class="mt-3 w-full bg-innoYellow text-innoBlue hover:bg-yellow-400 py-2 px-4 rounded font-bold text-xs transition shadow-sm flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-sliders"></i> Configurar Ahora
+                            </button>
+                        </template>
+
+                        <!-- Link PDF -->
+                        <template x-if="msg.pdfUrl">
+                            <a :href="msg.pdfUrl" target="_blank" class="mt-4 flex items-center justify-center gap-2 bg-gray-900 text-white hover:bg-black py-3 rounded-lg text-xs font-bold transition shadow-md no-underline">
+                                <i class="fa-solid fa-file-pdf text-lg text-innoYellow"></i> 
+                                <span>DESCARGAR PDF</span>
+                            </a>
+                        </template>
+                    </div>
+                </div>
+            </template>
+
+            <!-- Loading -->
+            <div x-show="loading" class="flex gap-4 max-w-4xl mx-auto">
+                <div class="w-10 h-10 rounded-full border-2 border-innoYellow bg-white p-1">
+                    <img src="https://i.imgur.com/CkTBVTk.png" class="w-full h-full object-cover rounded-full">
+                </div>
+                <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-200 typing-indicator flex gap-1 items-center h-12">
+                    <span class="w-2 h-2 bg-innoBlue rounded-full"></span>
+                    <span class="w-2 h-2 bg-innoBlue rounded-full"></span>
+                    <span class="w-2 h-2 bg-innoBlue rounded-full"></span>
+                </div>
+            </div>
+        </main>
+
+        <!-- INPUT AREA -->
+        <div class="bg-white border-t border-gray-200 p-4">
+            <form @submit.prevent="sendMessage" class="flex gap-3 max-w-4xl mx-auto relative">
+                <input type="text" x-model="input" placeholder="Escribe tu consulta técnica..." 
+                       class="flex-1 bg-gray-50 border border-gray-300 rounded-full px-6 py-4 text-sm focus:outline-none focus:border-innoBlue focus:ring-2 focus:ring-blue-100 transition shadow-inner">
+                
+                <button type="submit" :disabled="loading || !input" 
+                        class="bg-innoBlue hover:bg-blue-800 disabled:bg-gray-300 text-white rounded-full w-14 h-14 flex items-center justify-center transition shadow-lg transform hover:scale-105">
+                    <i class="fa-solid fa-paper-plane text-lg"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIGURACIÓN -->
+    <div x-show="showModal" 
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+         x-transition.opacity
+         style="display: none;">
+        
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden flex flex-col max-h-[90vh]"
+             @click.away="showModal = false"
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 translate-y-10"
+             x-transition:enter-end="opacity-100 translate-y-0">
+            
+            <div class="bg-innoBlue p-4 flex justify-between items-center">
+                <h3 class="text-white font-bold text-lg flex items-center gap-2">
+                    <i class="fa-solid fa-sliders"></i> Configurar <span x-text="pendingModel" class="text-innoYellow"></span>
+                </h3>
+                <button @click="showModal = false" class="text-white/70 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-50">
+                <div x-show="loadingForm" class="flex justify-center py-10">
+                    <i class="fa-solid fa-circle-notch fa-spin text-innoBlue text-3xl"></i>
+                </div>
+
+                <div x-show="!loadingForm">
+                    <template x-for="(options, category) in modalFormData" :key="category">
+                        <div class="mb-5">
+                            <label class="block text-xs font-bold text-gray-500 uppercase mb-2 tracking-wide" x-text="category"></label>
+                            <div class="relative">
+                                <select class="w-full text-sm border-gray-300 rounded-lg shadow-sm focus:border-innoBlue focus:ring focus:ring-blue-100 p-3 appearance-none bg-white"
+                                        @change="updateModalSelection(category, $el.value)">
+                                    <option value="">Seleccionar opción...</option>
+                                    <template x-for="opt in options" :key="opt.code">
+                                        <option :value="opt.code" x-text="opt.desc"></option>
+                                    </template>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
+                                    <i class="fa-solid fa-chevron-down text-xs"></i>
+                                </div>
+                            </div>
+                        </div>
                     </template>
                 </div>
             </div>
-        </template>
 
-        <!-- Loading Indicator -->
-        <div x-show="loading" class="flex gap-4">
-            <div class="w-12 h-12 rounded-full overflow-hidden shrink-0 border-2 border-white shadow-sm bg-white">
-                <img src="https://i.imgur.com/CkTBVTk.png" alt="Bot AI" class="w-full h-full object-cover">
-            </div>
-            <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-100 typing-indicator flex gap-1 items-center h-12">
-                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
-                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
-                <span class="w-2 h-2 bg-gray-400 rounded-full"></span>
+            <div class="p-4 border-t border-gray-200 bg-white flex justify-end gap-3">
+                <button @click="showModal = false" class="px-4 py-2 text-gray-500 hover:text-gray-700 font-semibold text-sm">
+                    Cancelar
+                </button>
+                <button @click="saveItemToQuote()" 
+                        class="bg-innoYellow text-innoBlue hover:bg-yellow-400 px-6 py-2 rounded-lg font-bold text-sm shadow-md transition flex items-center gap-2">
+                    <i class="fa-solid fa-plus"></i> Agregar a Cotización
+                </button>
             </div>
         </div>
-    </main>
-
-    <!-- Input Area -->
-    <div class="p-4 bg-white border-t border-gray-200">
-        <form @submit.prevent="sendMessage" class="flex gap-2 max-w-4xl mx-auto">
-            <input type="text" x-model="input" placeholder="Ej: Necesito medir flujo de ácido sulfúrico..." 
-                   class="flex-1 border border-gray-300 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition shadow-sm">
-            <button type="submit" :disabled="loading || !input" 
-                    class="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white rounded-full w-12 h-12 flex items-center justify-center transition shadow-md">
-                <i class="fa-solid fa-paper-plane"></i>
-            </button>
-        </form>
     </div>
 
+    <!-- LÓGICA JAVASCRIPT -->
     <script>
         function app() {
             return {
-                // TU URL DE WEBHOOK (Mantenemos la que tenías)
                 webhookUrl: 'https://1.jisn8n.work/webhook/innovatronica-api', 
                 input: '',
                 loading: false,
-                messages: [],
-                selections: {}, 
-                sessionId: '',
+                sidebarOpen: false, // Para móvil
+                
+                // Gestión de Chats
+                chatHistory: [],
+                activeChatId: null,
+                messages: [], // Mensajes del chat actual
+                
+                // Estado Cotizador
+                pendingModel: null,
+                quoteItems: [],
+                
+                // Modal
+                showModal: false,
+                loadingForm: false,
+                modalFormData: null,
+                currentSelection: {},
 
                 init() {
-                    let storedSession = localStorage.getItem('chat_session_id');
-                    if (!storedSession) {
-                        storedSession = 'sess_' + Math.random().toString(36).substr(2, 9);
-                        localStorage.setItem('chat_session_id', storedSession);
+                    // 1. Cargar historial del LocalStorage
+                    const savedHistory = localStorage.getItem('inno_chat_history');
+                    if (savedHistory) {
+                        this.chatHistory = JSON.parse(savedHistory);
                     }
-                    this.sessionId = storedSession;
+
+                    // 2. Cargar items del carrito
+                    const savedQuote = localStorage.getItem('inno_quote_items');
+                    if (savedQuote) {
+                        this.quoteItems = JSON.parse(savedQuote);
+                    }
+
+                    // 3. Si hay historial, cargar el último chat, si no, crear uno nuevo
+                    if (this.chatHistory.length > 0) {
+                        this.loadChat(this.chatHistory[0].id);
+                    } else {
+                        this.createNewChat();
+                    }
                 },
+
+                // --- GESTIÓN DE CHATS ---
+
+                createNewChat() {
+                    const newId = 'sess_' + Math.random().toString(36).substr(2, 9);
+                    const newChat = {
+                        id: newId,
+                        title: 'Nueva Consulta',
+                        messages: [] // Mensajes locales
+                    };
+                    
+                    this.chatHistory.unshift(newChat); // Agregar al principio
+                    this.loadChat(newId);
+                    this.saveState();
+                    
+                    // En móvil, cerrar sidebar al crear
+                    if (window.innerWidth < 768) this.sidebarOpen = false;
+                },
+
+                loadChat(id) {
+                    this.activeChatId = id;
+                    const chat = this.chatHistory.find(c => c.id === id);
+                    if (chat) {
+                        this.messages = chat.messages;
+                        // Limpiar estado pendiente al cambiar de chat
+                        this.pendingModel = null; 
+                    }
+                },
+
+                deleteChat(id) {
+                    this.chatHistory = this.chatHistory.filter(c => c.id !== id);
+                    
+                    // Si borramos el activo, cargar otro o crear nuevo
+                    if (this.activeChatId === id) {
+                        if (this.chatHistory.length > 0) {
+                            this.loadChat(this.chatHistory[0].id);
+                        } else {
+                            this.createNewChat();
+                        }
+                    }
+                    this.saveState();
+                },
+
+                saveState() {
+                    // Guardar mensajes actuales en el objeto del historial antes de persistir
+                    const currentChatIndex = this.chatHistory.findIndex(c => c.id === this.activeChatId);
+                    if (currentChatIndex !== -1) {
+                        this.chatHistory[currentChatIndex].messages = this.messages;
+                        
+                        // Actualizar título basado en el primer mensaje del usuario si es "Nueva Consulta"
+                        if (this.chatHistory[currentChatIndex].title === 'Nueva Consulta' && this.messages.length > 0) {
+                            const firstUserMsg = this.messages.find(m => m.isUser);
+                            if (firstUserMsg) {
+                                // Tomar primeros 25 caracteres
+                                this.chatHistory[currentChatIndex].title = firstUserMsg.text.substring(0, 25) + '...';
+                            }
+                        }
+                    }
+
+                    localStorage.setItem('inno_chat_history', JSON.stringify(this.chatHistory));
+                    localStorage.setItem('inno_quote_items', JSON.stringify(this.quoteItems));
+                },
+
+                // --- COMUNICACIÓN ---
 
                 parseMessage(text) {
                     return marked.parse(text);
@@ -192,6 +430,8 @@
                     
                     const text = this.input;
                     this.input = '';
+                    
+                    // Agregar mensaje usuario
                     this.addMessage(text, true);
                     this.loading = true;
 
@@ -202,80 +442,26 @@
                             body: JSON.stringify({ 
                                 action: 'chat', 
                                 text: text,
-                                session_id: this.sessionId 
+                                session_id: this.activeChatId // IMPORTANTE: Usamos el ID del chat actual
                             })
                         });
                         const data = await response.json();
+                        
+                        if (data.detected_model) {
+                            this.pendingModel = data.detected_model;
+                        }
+
                         this.addMessage(data.text, false, data.detected_model);
 
                     } catch (error) {
-                        this.addMessage("Error de conexión con el servidor.", false);
+                        this.addMessage("Error de conexión. Intenta de nuevo.", false);
                     } finally {
                         this.loading = false;
+                        this.saveState(); // Guardar después de recibir respuesta
                     }
                 },
 
-                async loadForm(modelId, msgId) {
-                    this.loading = true;
-                    const msgIndex = this.messages.findIndex(m => m.id === msgId);
-                    this.messages[msgIndex].formGenerated = true;
-
-                    try {
-                        const response = await fetch(this.webhookUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                action: 'get_options', 
-                                model_id: modelId,
-                                session_id: this.sessionId 
-                            })
-                        });
-                        const data = await response.json();
-                        
-                        this.messages[msgIndex].showForm = true;
-                        this.messages[msgIndex].formData = data;
-                        this.selections[msgId] = { model: modelId, codes: {} };
-
-                    } catch (error) {
-                        alert("Error cargando opciones.");
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-
-                updateSelection(category, code, msgId) {
-                    if (!this.selections[msgId]) return;
-                    this.selections[msgId].codes[category] = code;
-                },
-
-                async generateQuote(msgId) {
-                    const currentSelection = this.selections[msgId];
-                    this.loading = true;
-                    try {
-                        const response = await fetch(this.webhookUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                action: 'generate_quote', 
-                                model_id: currentSelection.model,
-                                selected_codes: currentSelection.codes,
-                                session_id: this.sessionId
-                            })
-                        });
-                        const data = await response.json();
-                        
-                        const msgIndex = this.messages.findIndex(m => m.id === msgId);
-                        this.messages[msgIndex].pdfUrl = data.pdf_url;
-                        this.messages[msgIndex].showForm = false;
-
-                    } catch (error) {
-                        alert("Error generando cotización.");
-                    } finally {
-                        this.loading = false;
-                    }
-                },
-
-                addMessage(text, isUser, modelId = null) {
+                addMessage(text, isUser, modelId = null, pdfUrl = null) {
                     this.messages.push({
                         id: Date.now(),
                         text: text,
@@ -284,12 +470,101 @@
                         formGenerated: false,
                         showForm: false,
                         formData: null,
-                        pdfUrl: null
+                        pdfUrl: pdfUrl
                     });
+                    
                     this.$nextTick(() => {
                         const container = document.getElementById('chat-container');
                         container.scrollTop = container.scrollHeight;
                     });
+                    
+                    this.saveState();
+                },
+
+                // --- FORMULARIO Y COTIZACIÓN ---
+
+                async openConfigModal() {
+                    if (!this.pendingModel) return;
+                    this.showModal = true;
+                    this.loadingForm = true;
+                    this.currentSelection = {};
+
+                    try {
+                        const response = await fetch(this.webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                action: 'get_options', 
+                                model_id: this.pendingModel,
+                                session_id: this.activeChatId 
+                            })
+                        });
+                        const data = await response.json();
+                        this.modalFormData = data;
+                    } catch (error) {
+                        alert("Error cargando formulario.");
+                        this.showModal = false;
+                    } finally {
+                        this.loadingForm = false;
+                    }
+                },
+
+                updateModalSelection(category, code) {
+                    this.currentSelection[category] = code;
+                },
+
+                saveItemToQuote() {
+                    if (Object.keys(this.currentSelection).length === 0) {
+                        alert("Selecciona al menos una opción.");
+                        return;
+                    }
+
+                    this.quoteItems.push({
+                        model: this.pendingModel,
+                        codes: {...this.currentSelection}
+                    });
+
+                    this.showModal = false;
+                    this.pendingModel = null;
+                    this.saveState();
+                    
+                    // Feedback visual en chat
+                    this.addMessage(`✅ Modelo **${this.quoteItems[this.quoteItems.length-1].model}** agregado al carrito de cotización.`, false);
+                },
+
+                removeItem(index) {
+                    this.quoteItems.splice(index, 1);
+                    this.saveState();
+                },
+
+                async finalizeQuote() {
+                    if (this.quoteItems.length === 0) return;
+                    this.loading = true;
+                    
+                    // Enviamos el último item para compatibilidad con tu backend actual
+                    // (Si actualizas n8n para recibir arrays, cambia esto)
+                    const itemToQuote = this.quoteItems[this.quoteItems.length - 1];
+
+                    try {
+                        const response = await fetch(this.webhookUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                action: 'generate_quote', 
+                                model_id: itemToQuote.model,
+                                selected_codes: itemToQuote.codes,
+                                session_id: this.activeChatId
+                            })
+                        });
+                        const data = await response.json();
+                        
+                        this.addMessage(`📄 **Cotización Generada**\nAquí tienes el documento oficial.`, false, null, data.pdf_url);
+
+                    } catch (error) {
+                        alert("Error generando PDF.");
+                    } finally {
+                        this.loading = false;
+                    }
                 }
             }
         }
