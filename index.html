@@ -44,57 +44,85 @@
         .prose a { color: #17559b; text-decoration: underline; }
 
         /* Scrollbar fina */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Ocultar scrollbar en sidebar pero permitir scroll */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 
 <body class="bg-slate-50 h-screen flex font-sans overflow-hidden" x-data="app()" x-init="init()">
 
     <!-- SIDEBAR (Historial de Chats) -->
-    <aside class="w-64 bg-innoDark text-white flex flex-col flex-shrink-0 transition-all duration-300" 
-           :class="sidebarOpen ? 'translate-x-0' : '-translate-x-64 absolute z-50 h-full md:relative md:translate-x-0'">
+    <aside class="w-72 bg-innoDark text-white flex flex-col flex-shrink-0 transition-all duration-300 shadow-2xl z-30" 
+           :class="sidebarOpen ? 'translate-x-0' : '-translate-x-72 absolute h-full md:relative md:translate-x-0'">
         
         <!-- Botón Nuevo Chat -->
-        <div class="p-4">
+        <div class="p-4 pb-2">
             <button @click="createNewChat()" 
-                    class="w-full flex items-center gap-3 px-4 py-3 bg-innoBlue hover:bg-blue-600 border border-white/10 rounded-lg transition shadow-md group">
+                    class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-innoBlue hover:bg-blue-600 border border-white/10 rounded-lg transition shadow-md group mb-4">
                 <i class="fa-solid fa-plus text-innoYellow group-hover:rotate-90 transition duration-300"></i>
-                <span class="font-semibold text-sm">Nueva Consulta</span>
+                <span class="font-semibold text-sm tracking-wide">Nueva Consulta</span>
             </button>
+
+            <!-- Buscador -->
+            <div class="relative group">
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-gray-400 text-xs group-focus-within:text-innoYellow transition"></i>
+                <input type="text" x-model="searchQuery" placeholder="Buscar en historial..." 
+                       class="w-full bg-black/20 border border-white/10 rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-gray-400 focus:outline-none focus:border-innoYellow/50 transition">
+            </div>
         </div>
 
         <!-- Lista de Chats -->
-        <div class="flex-1 overflow-y-auto px-2 space-y-1">
-            <div class="px-2 py-2 text-xs font-bold text-gray-400 uppercase tracking-wider">Historial</div>
+        <div class="flex-1 overflow-y-auto px-3 space-y-1 no-scrollbar">
+            <div class="px-2 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
+                <span>Recientes</span>
+                <span x-text="filteredChats.length" class="bg-white/10 px-1.5 rounded text-gray-300"></span>
+            </div>
             
-            <template x-for="chat in chatHistory" :key="chat.id">
+            <template x-for="chat in filteredChats" :key="chat.id">
                 <div @click="loadChat(chat.id)" 
-                     class="group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition text-sm"
-                     :class="activeChatId === chat.id ? 'bg-white/10 text-white border-l-4 border-innoYellow' : 'text-gray-300 hover:bg-white/5'">
+                     class="group relative flex flex-col px-3 py-3 rounded-lg cursor-pointer transition border border-transparent"
+                     :class="activeChatId === chat.id ? 'bg-white/10 border-white/5 shadow-inner' : 'hover:bg-white/5 hover:border-white/5'">
                     
-                    <div class="flex items-center gap-3 overflow-hidden">
-                        <i class="fa-regular fa-message text-xs"></i>
-                        <span class="truncate w-32" x-text="chat.title || 'Nueva conversación'"></span>
+                    <div class="flex justify-between items-start mb-1">
+                        <span class="font-medium text-sm truncate w-48 text-gray-200 group-hover:text-white transition" x-text="chat.title || 'Nueva conversación'"></span>
+                        <!-- Timestamp -->
+                        <span class="text-[10px] text-gray-500 whitespace-nowrap" x-text="formatTime(chat.timestamp)"></span>
                     </div>
-
-                    <!-- Botón Borrar -->
-                    <button @click.stop="deleteChat(chat.id)" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-400 transition">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
+                    
+                    <div class="flex justify-between items-center">
+                        <p class="text-[11px] text-gray-500 truncate w-40" x-text="chat.preview || 'Sin mensajes...'"></p>
+                        
+                        <!-- Botón Borrar (Hover) -->
+                        <button @click.stop="deleteChat(chat.id)" class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition p-1">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Indicador activo -->
+                    <div x-show="activeChatId === chat.id" class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-innoYellow rounded-r-full"></div>
                 </div>
             </template>
+            
+            <!-- Estado vacío búsqueda -->
+            <div x-show="filteredChats.length === 0" class="text-center py-8 text-gray-500 text-xs">
+                <i class="fa-regular fa-folder-open text-2xl mb-2 opacity-50"></i>
+                <p>No se encontraron chats</p>
+            </div>
         </div>
 
-        <div class="p-4 border-t border-white/10 text-xs text-center text-gray-400">
-            Innovatrónica AI v3.1
+        <div class="p-3 border-t border-white/5 bg-black/10 text-[10px] text-center text-gray-500">
+            Innovatrónica AI v4.0
         </div>
     </aside>
 
     <!-- CONTENIDO PRINCIPAL -->
-    <div class="flex-1 flex flex-col h-full relative w-full">
+    <div class="flex-1 flex flex-col h-full relative w-full bg-white">
         
         <!-- HEADER -->
         <header class="bg-white border-b border-gray-200 px-6 py-2 shadow-sm flex justify-between items-center h-20 z-10">
@@ -115,16 +143,16 @@
             <!-- Derecha: Botones de Acción -->
             <div class="flex items-center gap-3">
                 
-                <!-- BOTÓN 1: CONFIGURAR (Estático y Limpio) -->
+                <!-- BOTÓN 1: CONFIGURAR -->
                 <template x-if="pendingModel">
                     <button @click="openConfigModal()" 
                             class="hidden sm:flex bg-innoYellow text-innoBlue hover:bg-yellow-400 font-bold py-2 px-5 rounded-lg shadow-md transition transform hover:scale-105 items-center gap-2 text-sm border border-yellow-500/20">
-                        <i class="fa-solid fa-gear"></i> <!-- Icono estático -->
+                        <i class="fa-solid fa-gear"></i>
                         <span>Configurar <span x-text="pendingModel"></span></span>
                     </button>
                 </template>
 
-                <!-- BOTÓN 2: COTIZAR (Dropdown) -->
+                <!-- BOTÓN 2: COTIZAR -->
                 <div class="relative" x-data="{ openDropdown: false }">
                     <button @click="openDropdown = !openDropdown" 
                             :class="quoteItems.length > 0 ? 'bg-innoBlue text-white hover:bg-blue-800' : 'bg-gray-100 text-gray-400 cursor-not-allowed'"
@@ -179,7 +207,7 @@
                     <img src="https://i.imgur.com/CkTBVTk.png" class="w-full h-full object-cover rounded-full">
                 </div>
                 <h2 class="text-2xl font-bold text-innoBlue mb-2">Innovatrónica AI</h2>
-                <p class="text-gray-500 max-w-md">Selecciona "Nueva Consulta" para empezar o continúa una conversación anterior desde el menú lateral.</p>
+                <p class="text-gray-500 max-w-md text-sm">Selecciona "Nueva Consulta" para empezar o continúa una conversación anterior desde el menú lateral.</p>
             </div>
 
             <!-- Mensajes -->
@@ -187,13 +215,17 @@
                 <div class="flex gap-4 max-w-4xl mx-auto" :class="msg.isUser ? 'flex-row-reverse' : ''">
                     
                     <!-- Avatar -->
-                    <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 border-2 shadow-sm flex items-center justify-center"
-                         :class="msg.isUser ? 'border-gray-300 bg-gray-200' : 'border-innoYellow bg-white'">
+                    <div class="w-9 h-9 rounded-full overflow-hidden shrink-0 shadow-sm flex items-center justify-center"
+                         :class="msg.isUser ? 'bg-gray-400' : 'border-2 border-innoYellow bg-white'">
+                        
+                        <!-- Bot: Imagen -->
                         <template x-if="!msg.isUser">
                             <img src="https://i.imgur.com/CkTBVTk.png" class="w-full h-full object-cover">
                         </template>
+                        
+                        <!-- Usuario: Círculo Sólido Minimalista (Sin icono) -->
                         <template x-if="msg.isUser">
-                            <i class="fa-solid fa-user text-gray-500"></i>
+                            <div class="w-full h-full bg-gray-500"></div>
                         </template>
                     </div>
 
@@ -216,7 +248,7 @@
 
             <!-- Loading -->
             <div x-show="loading" class="flex gap-4 max-w-4xl mx-auto">
-                <div class="w-10 h-10 rounded-full border-2 border-innoYellow bg-white p-1">
+                <div class="w-9 h-9 rounded-full border-2 border-innoYellow bg-white p-1">
                     <img src="https://i.imgur.com/CkTBVTk.png" class="w-full h-full object-cover rounded-full">
                 </div>
                 <div class="bg-white p-4 rounded-2xl rounded-tl-none shadow-sm border border-gray-200 typing-indicator flex gap-1 items-center h-12">
@@ -263,7 +295,6 @@
             </div>
 
             <div class="p-6 overflow-y-auto flex-1 bg-slate-50">
-                <!-- Spinner de carga DENTRO del modal -->
                 <div x-show="loadingForm" class="flex flex-col items-center justify-center py-10 gap-3">
                     <i class="fa-solid fa-circle-notch fa-spin text-innoBlue text-4xl"></i>
                     <p class="text-gray-500 text-sm font-medium">Cargando opciones del modelo...</p>
@@ -310,6 +341,7 @@
                 input: '',
                 loading: false,
                 sidebarOpen: false,
+                searchQuery: '', // Para el buscador
                 
                 // Gestión de Chats
                 chatHistory: [],
@@ -334,10 +366,27 @@
                     if (savedQuote) this.quoteItems = JSON.parse(savedQuote);
 
                     if (this.chatHistory.length > 0) {
+                        // Cargar el más reciente (el primero de la lista ordenada)
                         this.loadChat(this.chatHistory[0].id);
                     } else {
                         this.createNewChat();
                     }
+                },
+
+                // --- GESTIÓN DE CHATS ---
+
+                // Propiedad computada para filtrar y ordenar chats
+                get filteredChats() {
+                    let chats = this.chatHistory;
+                    
+                    // Filtrar por búsqueda
+                    if (this.searchQuery) {
+                        const query = this.searchQuery.toLowerCase();
+                        chats = chats.filter(c => c.title.toLowerCase().includes(query));
+                    }
+                    
+                    // Ordenar por timestamp (más reciente primero)
+                    return chats.sort((a, b) => b.timestamp - a.timestamp);
                 },
 
                 createNewChat() {
@@ -345,6 +394,8 @@
                     const newChat = {
                         id: newId,
                         title: 'Nueva Consulta',
+                        preview: 'Iniciando conversación...',
+                        timestamp: Date.now(), // Timestamp inicial
                         messages: []
                     };
                     
@@ -379,16 +430,39 @@
                     const currentChatIndex = this.chatHistory.findIndex(c => c.id === this.activeChatId);
                     if (currentChatIndex !== -1) {
                         this.chatHistory[currentChatIndex].messages = this.messages;
+                        this.chatHistory[currentChatIndex].timestamp = Date.now(); // Actualizar tiempo al guardar
+                        
+                        // Generar Título Dinámico (3 palabras)
                         if (this.chatHistory[currentChatIndex].title === 'Nueva Consulta' && this.messages.length > 0) {
                             const firstUserMsg = this.messages.find(m => m.isUser);
                             if (firstUserMsg) {
-                                this.chatHistory[currentChatIndex].title = firstUserMsg.text.substring(0, 25) + '...';
+                                // Tomar las primeras 3 palabras
+                                const words = firstUserMsg.text.split(' ').slice(0, 3).join(' ');
+                                this.chatHistory[currentChatIndex].title = words + '...';
+                                this.chatHistory[currentChatIndex].preview = firstUserMsg.text.substring(0, 30) + '...';
                             }
+                        } else if (this.messages.length > 0) {
+                             // Actualizar preview con el último mensaje
+                             const lastMsg = this.messages[this.messages.length - 1];
+                             this.chatHistory[currentChatIndex].preview = lastMsg.text.substring(0, 30) + '...';
                         }
                     }
                     localStorage.setItem('inno_chat_history', JSON.stringify(this.chatHistory));
                     localStorage.setItem('inno_quote_items', JSON.stringify(this.quoteItems));
                 },
+
+                formatTime(timestamp) {
+                    if (!timestamp) return '';
+                    const date = new Date(timestamp);
+                    // Si es hoy, mostrar hora, si no, fecha
+                    const today = new Date();
+                    if (date.toDateString() === today.toDateString()) {
+                        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+                    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+                },
+
+                // --- COMUNICACIÓN ---
 
                 parseMessage(text) {
                     return marked.parse(text);
@@ -399,6 +473,7 @@
                     
                     const text = this.input;
                     this.input = '';
+                    
                     this.addMessage(text, true);
                     this.loading = true;
 
@@ -436,12 +511,16 @@
                         modelId: modelId,
                         pdfUrl: pdfUrl
                     });
+                    
                     this.$nextTick(() => {
                         const container = document.getElementById('chat-container');
                         container.scrollTop = container.scrollHeight;
                     });
+                    
                     this.saveState();
                 },
+
+                // --- FORMULARIO Y COTIZACIÓN ---
 
                 async openConfigModal() {
                     if (!this.pendingModel) return;
@@ -487,6 +566,7 @@
                     this.showModal = false;
                     this.pendingModel = null;
                     this.saveState();
+                    
                     this.addMessage(`✅ Modelo **${this.quoteItems[this.quoteItems.length-1].model}** agregado al carrito de cotización.`, false);
                 },
 
@@ -513,6 +593,7 @@
                             })
                         });
                         const data = await response.json();
+                        
                         this.addMessage(`📄 **Cotización Generada**\nAquí tienes el documento oficial.`, false, null, data.pdf_url);
 
                     } catch (error) {
