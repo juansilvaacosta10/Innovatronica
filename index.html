@@ -14,7 +14,8 @@
         @keyframes blink { 0% { opacity: .2; } 20% { opacity: 1; } 100% { opacity: .2; } }
     </style>
 </head>
-<body class="bg-slate-50 h-screen flex flex-col font-sans" x-data="app()">
+<!-- Agregamos x-init="init()" para generar el ID al cargar la página -->
+<body class="bg-slate-50 h-screen flex flex-col font-sans" x-data="app()" x-init="init()">
 
     <!-- Header -->
     <header class="bg-white border-b border-gray-200 p-4 shadow-sm flex justify-between items-center">
@@ -122,12 +123,25 @@
     <script>
         function app() {
             return {
-                // CAMBIA ESTO POR TU URL DE WEBHOOK DE PRODUCCIÓN DE N8N
+                // TU URL DE WEBHOOK
                 webhookUrl: 'https://1.jisn8n.work/webhook/innovatronica-api', 
                 input: '',
                 loading: false,
                 messages: [],
-                selections: {}, // Guarda las selecciones del usuario temporalmente
+                selections: {}, 
+                sessionId: '', // Variable para guardar el ID único
+
+                // Función de inicialización para crear/recuperar sesión
+                init() {
+                    let storedSession = localStorage.getItem('chat_session_id');
+                    if (!storedSession) {
+                        // Generar un ID aleatorio si no existe
+                        storedSession = 'sess_' + Math.random().toString(36).substr(2, 9);
+                        localStorage.setItem('chat_session_id', storedSession);
+                    }
+                    this.sessionId = storedSession;
+                    console.log("Session ID:", this.sessionId);
+                },
 
                 async sendMessage() {
                     if (!this.input.trim()) return;
@@ -141,11 +155,14 @@
                         const response = await fetch(this.webhookUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'chat', text: text })
+                            body: JSON.stringify({ 
+                                action: 'chat', 
+                                text: text,
+                                session_id: this.sessionId // Enviamos el ID a n8n
+                            })
                         });
                         const data = await response.json();
                         
-                        // data espera: { text: "Respuesta IA", detected_model: "VE83" (opcional) }
                         this.addMessage(data.text, false, data.detected_model);
 
                     } catch (error) {
@@ -157,7 +174,6 @@
 
                 async loadForm(modelId, msgId) {
                     this.loading = true;
-                    // Encontrar el mensaje y marcar form como generado para ocultar botón
                     const msgIndex = this.messages.findIndex(m => m.id === msgId);
                     this.messages[msgIndex].formGenerated = true;
 
@@ -165,14 +181,16 @@
                         const response = await fetch(this.webhookUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ action: 'get_options', model_id: modelId })
+                            body: JSON.stringify({ 
+                                action: 'get_options', 
+                                model_id: modelId,
+                                session_id: this.sessionId 
+                            })
                         });
-                        const data = await response.json(); // Espera { "Surface Finish": [...], ... }
+                        const data = await response.json();
                         
                         this.messages[msgIndex].showForm = true;
                         this.messages[msgIndex].formData = data;
-                        
-                        // Inicializar objeto de selección para este formulario
                         this.selections[msgId] = { model: modelId, codes: {} };
 
                     } catch (error) {
@@ -189,7 +207,6 @@
 
                 async generateQuote(msgId) {
                     const currentSelection = this.selections[msgId];
-                    // Validar si quieres que todo esté lleno o no
                     
                     this.loading = true;
                     try {
@@ -199,15 +216,15 @@
                             body: JSON.stringify({ 
                                 action: 'generate_quote', 
                                 model_id: currentSelection.model,
-                                selected_codes: currentSelection.codes 
+                                selected_codes: currentSelection.codes,
+                                session_id: this.sessionId
                             })
                         });
-                        const data = await response.json(); // Espera { pdf_url: "..." }
+                        const data = await response.json();
                         
-                        // Mostrar link de descarga en el mensaje
                         const msgIndex = this.messages.findIndex(m => m.id === msgId);
                         this.messages[msgIndex].pdfUrl = data.pdf_url;
-                        this.messages[msgIndex].showForm = false; // Ocultar form si quieres limpiar
+                        this.messages[msgIndex].showForm = false;
 
                     } catch (error) {
                         alert("Error generando cotización.");
@@ -221,7 +238,7 @@
                         id: Date.now(),
                         text: text,
                         isUser: isUser,
-                        modelId: modelId, // Si n8n detecta modelo, se guarda aquí
+                        modelId: modelId,
                         formGenerated: false,
                         showForm: false,
                         formData: null,
